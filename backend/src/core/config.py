@@ -6,7 +6,8 @@ class Settings(BaseSettings):
     secret_key: str = "development_secret_key"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440
-    database_url: str = "postgresql://postgres:postgres@localhost:5432/postgres"
+    database_url: str = "postgresql://postgres:postgrespassword@localhost:5432/app_db"
+    gemini_api_key: str = ""
     
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

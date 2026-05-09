@@ -1,18 +1,55 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Clock, MapPin, Users, FileText, Globe, Lock, Plus } from 'lucide-react';
+import { api } from '../config/api';
+import { ArrowLeft, Calendar, Clock, MapPin, Users, FileText, Globe, Lock, Plus, Star } from 'lucide-react';
 import { SPORTS } from '../config/sports';
 import { SportIcon } from '../components/SportIcons';
 
 export default function CreateEventPage() {
   const navigate = useNavigate();
   const [selectedSport, setSelectedSport] = useState(null);
+  const [title, setTitle] = useState('');
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [location, setLocation] = useState('');
+  const [maxPlayers, setMaxPlayers] = useState('10');
+  const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
+  const [venues, setVenues] = useState([]);
 
-  function handleCreate(e) {
+  useEffect(() => {
+    if (selectedSport) {
+      api.get(`/api/venues?sport_key=${selectedSport}`).then(setVenues).catch(() => {});
+    }
+  }, [selectedSport]);
+
+  async function handleCreate(e) {
     e.preventDefault();
-    // TODO: POST to API
-    navigate('/home');
+    if (!selectedSport || !title.trim() || !date) {
+      setError('Please fill in sport, title, and date');
+      return;
+    }
+    setCreating(true);
+    setError('');
+    try {
+      const result = await api.post('/api/events', {
+        title,
+        sport_key: selectedSport,
+        date,
+        time: time || null,
+        location: location || null,
+        description: description || null,
+        max_players: parseInt(maxPlayers) || 10,
+        is_public: isPublic,
+      });
+      navigate(`/events/${result.id}`);
+    } catch (err) {
+      setError(err.message || 'Failed to create event');
+    } finally {
+      setCreating(false);
+    }
   }
 
   return (
@@ -29,6 +66,12 @@ export default function CreateEventPage() {
 
         <h2 className="text-xl font-bold text-warm-900 mb-1">Create event</h2>
         <p className="text-sm text-warm-500 mb-6">Set up a game and invite players</p>
+
+        {error && (
+          <div className="bg-red-50 text-red-700 text-sm px-4 py-3 rounded-xl border border-red-200 mb-4">
+            {error}
+          </div>
+        )}
 
         <form onSubmit={handleCreate} className="flex flex-col gap-5">
           {/* Sport picker */}
@@ -64,6 +107,8 @@ export default function CreateEventPage() {
               <input
                 type="text"
                 placeholder="e.g. Friday evening football"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-warm-200 rounded-xl text-sm bg-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 transition"
               />
             </div>
@@ -77,6 +122,8 @@ export default function CreateEventPage() {
                 <Calendar size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-warm-500" />
                 <input
                   type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
                   className="w-full pl-10 pr-3 py-3 border border-warm-200 rounded-xl text-sm bg-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 transition"
                 />
               </div>
@@ -87,23 +134,56 @@ export default function CreateEventPage() {
                 <Clock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-warm-500" />
                 <input
                   type="time"
+                  value={time}
+                  onChange={(e) => setTime(e.target.value)}
                   className="w-full pl-10 pr-3 py-3 border border-warm-200 rounded-xl text-sm bg-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 transition"
                 />
               </div>
             </div>
           </div>
 
-          {/* Location */}
+          {/* Location with venue suggestions */}
           <div>
             <label className="text-xs font-semibold text-warm-700 mb-2 block">Location</label>
             <div className="relative">
               <MapPin size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-warm-500" />
               <input
                 type="text"
-                placeholder="e.g. Arena Sport Cluj, Str. Fabricii 12"
+                placeholder="e.g. Arena Sport Cluj"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-warm-200 rounded-xl text-sm bg-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 transition"
               />
             </div>
+            {venues.length > 0 && (
+              <div className="mt-2 flex flex-col gap-1.5">
+                <p className="text-[10px] text-warm-500 font-semibold">Suggested venues:</p>
+                {venues.slice(0, 3).map((v) => (
+                  <button
+                    key={v.id}
+                    type="button"
+                    onClick={() => setLocation(`${v.name}, ${v.address}`)}
+                    className={`text-left text-xs px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                      location.includes(v.name)
+                        ? 'border-green-500 bg-green-50 text-green-800'
+                        : 'border-warm-200 bg-white text-warm-700 hover:border-warm-500'
+                    }`}
+                  >
+                    <span className="font-medium">{v.name}</span>
+                    <span className="text-warm-500"> — {v.address}</span>
+                    <span className="text-warm-500 ml-2">
+                      {v.price_per_hour ? `${v.price_per_hour} RON/h` : 'Free'}
+                    </span>
+                    {v.rating && (
+                      <span className="ml-1 inline-flex items-center gap-0.5">
+                        <Star size={9} className="text-amber-400 fill-amber-400" />
+                        {v.rating}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Max players */}
@@ -116,6 +196,8 @@ export default function CreateEventPage() {
                 placeholder="10"
                 min="2"
                 max="30"
+                value={maxPlayers}
+                onChange={(e) => setMaxPlayers(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-warm-200 rounded-xl text-sm bg-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 transition"
               />
             </div>
@@ -127,6 +209,8 @@ export default function CreateEventPage() {
             <textarea
               placeholder="Any details players should know..."
               rows={3}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               className="w-full px-4 py-3 border border-warm-200 rounded-xl text-sm bg-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 transition resize-y"
             />
           </div>
@@ -164,10 +248,11 @@ export default function CreateEventPage() {
           {/* Submit */}
           <button
             type="submit"
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer border-none"
+            disabled={creating}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer border-none disabled:opacity-60"
           >
             <Plus size={18} />
-            Create event
+            {creating ? 'Creating...' : 'Create event'}
           </button>
         </form>
       </div>

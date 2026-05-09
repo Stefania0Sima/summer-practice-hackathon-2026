@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, ArrowRight, Camera, Sparkles, MapPin } from 'lucide-react';
+import { api } from '../config/api';
+import { ArrowLeft, ArrowRight, Camera, Sparkles, MapPin, Loader2 } from 'lucide-react';
 import { SPORTS, SKILL_LEVELS } from '../config/sports';
 import { SportIcon } from '../components/SportIcons';
 
@@ -11,6 +12,9 @@ export default function OnboardingPage() {
   const [skillLevels, setSkillLevels] = useState({});
   const [bio, setBio] = useState('');
   const [city, setCity] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState(null);
+  const [analyzingBio, setAnalyzingBio] = useState(false);
 
   function toggleSport(id) {
     setSelectedSports((prev) =>
@@ -18,9 +22,54 @@ export default function OnboardingPage() {
     );
   }
 
-  function handleFinish() {
-    // TODO: POST to backend when API is ready
-    navigate('/home');
+  async function handleAnalyzeBio() {
+    if (!bio.trim()) return;
+    setAnalyzingBio(true);
+    try {
+      const result = await api.post('/api/ai/analyze-bio', { bio });
+      setAiSuggestions(result);
+      if (result.sports?.length > 0) {
+        setSelectedSports((prev) => {
+          const combined = new Set([...prev, ...result.sports]);
+          return [...combined];
+        });
+      }
+      if (result.skill_hints) {
+        setSkillLevels((prev) => ({ ...prev, ...result.skill_hints }));
+      }
+    } catch {}
+    finally { setAnalyzingBio(false); }
+  }
+
+  async function handleAvatarUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append('file', file);
+    try {
+      await fetch('/api/users/me/avatar', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: form,
+      });
+    } catch {}
+  }
+
+  async function handleFinish() {
+    setSaving(true);
+    try {
+      await api.put('/api/users/me', { bio, city });
+      const sports = selectedSports.map((key) => ({
+        sport_key: key,
+        skill_level: skillLevels[key] || 'Beginner',
+      }));
+      await api.put('/api/users/me/sports', { sports });
+      navigate('/home');
+    } catch {
+      navigate('/home');
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -141,11 +190,12 @@ export default function OnboardingPage() {
             <h2 className="text-xl font-bold text-warm-900 mb-1">Almost done!</h2>
             <p className="text-sm text-warm-500 mb-5">Tell people a bit about yourself</p>
 
-            {/* Avatar placeholder */}
+            {/* Avatar upload */}
             <div className="flex flex-col items-center mb-6">
-              <button className="w-20 h-20 rounded-full bg-green-100 border-2 border-dashed border-green-400 flex items-center justify-center cursor-pointer hover:bg-green-200 transition-colors">
+              <label className="w-20 h-20 rounded-full bg-green-100 border-2 border-dashed border-green-400 flex items-center justify-center cursor-pointer hover:bg-green-200 transition-colors">
                 <Camera size={28} className="text-green-700" />
-              </button>
+                <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
+              </label>
               <p className="text-xs text-warm-500 mt-2">Tap to upload photo (optional)</p>
             </div>
 
@@ -169,12 +219,29 @@ export default function OnboardingPage() {
               </div>
             </div>
 
-            <div className="bg-green-50 rounded-xl px-4 py-3 mb-6 flex items-start gap-2.5">
-              <Sparkles size={16} className="text-green-700 mt-0.5 shrink-0" />
-              <p className="text-xs text-green-800 leading-relaxed">
-                Our AI reads your bio to suggest sports and find compatible players. The more you write, the better your matches!
+            {/* AI analyze bio button */}
+            <button
+              onClick={handleAnalyzeBio}
+              disabled={!bio.trim() || analyzingBio}
+              className="w-full bg-green-50 rounded-xl px-4 py-3 mb-4 flex items-center gap-2.5 cursor-pointer border border-green-200 hover:bg-green-100 transition-colors disabled:opacity-50"
+            >
+              {analyzingBio ? (
+                <Loader2 size={16} className="text-green-700 animate-spin shrink-0" />
+              ) : (
+                <Sparkles size={16} className="text-green-700 shrink-0" />
+              )}
+              <p className="text-xs text-green-800 text-left leading-relaxed">
+                {analyzingBio ? 'Analyzing your bio...' : 'Let AI suggest sports from your bio'}
               </p>
-            </div>
+            </button>
+
+            {aiSuggestions?.sports?.length > 0 && (
+              <div className="bg-green-50 rounded-xl px-4 py-3 mb-4 border border-green-200">
+                <p className="text-xs font-semibold text-green-800 mb-1">AI detected these sports:</p>
+                <p className="text-xs text-green-700">{aiSuggestions.sports.join(', ')}</p>
+                <p className="text-[10px] text-green-600 mt-1">Added to your selections on step 1</p>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button
@@ -186,9 +253,10 @@ export default function OnboardingPage() {
               </button>
               <button
                 onClick={handleFinish}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                disabled={saving}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
               >
-                Let's go!
+                {saving ? 'Saving...' : "Let's go!"}
               </button>
             </div>
           </>
