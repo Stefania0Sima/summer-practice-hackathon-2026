@@ -1,3 +1,7 @@
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,11 +16,16 @@ from db.seed import seed_database
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Force schema wipe to bypass Postgres constraint deadlocks
-    with engine.begin() as conn:
-        conn.execute(text("DROP SCHEMA public CASCADE; CREATE SCHEMA public;"))
-        
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as conn:
+        for stmt in [
+            "ALTER TABLE events ADD COLUMN IF NOT EXISTS compatibility_score INTEGER",
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS xp INTEGER DEFAULT 0",
+        ]:
+            try:
+                conn.execute(text(stmt))
+            except Exception:
+                pass
     db = SessionLocal()
     try:
         seed_database(db)

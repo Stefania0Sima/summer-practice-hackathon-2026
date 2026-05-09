@@ -2,22 +2,33 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../scripts/useAuth';
 import { api } from '../config/api';
-import { ArrowLeft, Crown, MapPin, DollarSign, Send, BarChart3, Clock, Users, UserPlus, LogOut } from 'lucide-react';
+import { ArrowLeft, Crown, MapPin, Send, BarChart3, Clock, Users, UserPlus, LogOut, Share2, Check, Sparkles, CalendarPlus, CloudSun, Plus, X } from 'lucide-react';
 import { SportIcon } from '../components/SportIcons';
+import VenueMap from '../components/VenueMap';
+import { useToast } from '../components/Toast';
 
 export default function EventDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const toast = useToast();
   const [event, setEvent] = useState(null);
   const [messages, setMessages] = useState([]);
   const [polls, setPolls] = useState([]);
   const [msgInput, setMsgInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [venueData, setVenueData] = useState([]);
+  const [weather, setWeather] = useState(null);
+  const [showPollForm, setShowPollForm] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
+  const [creatingPoll, setCreatingPoll] = useState(false);
   const chatEndRef = useRef(null);
 
   const isParticipant = event?.participants?.some((p) => p.id === user?.id);
+  const isCaptain = event?.captain_id === user?.id;
 
   useEffect(() => {
     loadAll();
@@ -36,6 +47,15 @@ export default function EventDetailPage() {
     try {
       const ev = await api.get(`/api/events/${id}`);
       setEvent(ev);
+      if (ev.sport_key) {
+        api.get(`/api/venues?sport_key=${ev.sport_key}`).then((v) => {
+          const matched = v.filter((venue) => ev.location && ev.location.includes(venue.name));
+          setVenueData(matched.length > 0 ? matched : v.slice(0, 3));
+        }).catch(() => {});
+      }
+      if (ev.date) {
+        api.get(`/api/ai/weather?date=${ev.date}&city=${encodeURIComponent(ev.location || 'Cluj-Napoca')}`).then(setWeather).catch(() => {});
+      }
       if (ev.participants?.some((p) => p.id === user?.id)) {
         const [msgs, plls] = await Promise.all([
           api.get(`/api/events/${id}/messages`),
@@ -58,22 +78,45 @@ export default function EventDetailPage() {
       setMessages((prev) => [...prev, msg]);
       setMsgInput('');
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-    } catch {}
-    finally { setSending(false); }
+    } catch {
+      toast('Failed to send message', 'error');
+    } finally { setSending(false); }
   }
 
   async function handleJoin() {
     try {
       await api.post(`/api/events/${id}/join`);
+      toast('You joined the event! +10 XP');
       await loadAll();
-    } catch {}
+    } catch {
+      toast('Failed to join event', 'error');
+    }
   }
 
   async function handleLeave() {
     try {
       await api.post(`/api/events/${id}/leave`);
+      toast('You left the event', 'info');
       await loadAll();
-    } catch {}
+    } catch {
+      toast('Failed to leave event', 'error');
+    }
+  }
+
+  async function handleShare() {
+    const url = window.location.href;
+    const text = `Join "${event.title}" on ShowUp2Move! ${event.date}${event.time ? ` at ${event.time}` : ''}${event.location ? ` — ${event.location}` : ''}`;
+    if (navigator.share) {
+      try { await navigator.share({ title: event.title, text, url }); } catch {}
+    } else {
+      await navigator.clipboard.writeText(`${text}\n${url}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
+
+  function handleCalendarDownload() {
+    window.open(`/api/events/${id}/calendar`, '_blank');
   }
 
   async function handleVote(pollId, optionId) {
@@ -81,6 +124,30 @@ export default function EventDetailPage() {
       const updated = await api.post(`/api/polls/${pollId}/vote`, { option_id: optionId });
       setPolls((prev) => prev.map((p) => (p.id === pollId ? updated : p)));
     } catch {}
+  }
+
+  async function handleCreatePoll() {
+    const validOptions = pollOptions.filter((o) => o.trim());
+    if (!pollQuestion.trim() || validOptions.length < 2) {
+      toast('Add a question and at least 2 options', 'error');
+      return;
+    }
+    setCreatingPoll(true);
+    try {
+      const newPoll = await api.post(`/api/events/${id}/polls`, {
+        question: pollQuestion,
+        options: validOptions,
+      });
+      setPolls((prev) => [newPoll, ...prev]);
+      setPollQuestion('');
+      setPollOptions(['', '']);
+      setShowPollForm(false);
+      toast('Poll created!');
+    } catch {
+      toast('Failed to create poll', 'error');
+    } finally {
+      setCreatingPoll(false);
+    }
   }
 
   if (loading) {
@@ -148,7 +215,46 @@ export default function EventDetailPage() {
         {event.description && (
           <p className="text-xs text-warm-700 mt-3 leading-relaxed">{event.description}</p>
         )}
+
+        {/* Action row: share, calendar, compatibility */}
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-warm-100 flex-wrap">
+          <button
+            onClick={handleShare}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-warm-50 text-warm-700 cursor-pointer border-none hover:bg-warm-100 transition-colors"
+          >
+            {copied ? <Check size={12} className="text-green-600" /> : <Share2 size={12} />}
+            {copied ? 'Copied!' : 'Share'}
+          </button>
+          <button
+            onClick={handleCalendarDownload}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-warm-50 text-warm-700 cursor-pointer border-none hover:bg-warm-100 transition-colors"
+          >
+            <CalendarPlus size={12} />
+            Add to calendar
+          </button>
+          {event.compatibility_score && (
+            <span className="flex items-center gap-1.5 text-xs bg-green-50 text-green-800 px-3 py-1.5 rounded-full font-medium">
+              <Sparkles size={12} />
+              {event.compatibility_score}% compatible
+            </span>
+          )}
+        </div>
       </div>
+
+      {/* Weather */}
+      {weather && (
+        <div className={`rounded-xl px-4 py-3 mb-4 flex items-center gap-3 ${weather.outdoor_ok ? 'bg-blue-50 border border-blue-200' : 'bg-amber-50 border border-amber-200'}`}>
+          <CloudSun size={20} className={weather.outdoor_ok ? 'text-blue-600' : 'text-amber-600'} />
+          <p className={`text-xs ${weather.outdoor_ok ? 'text-blue-800' : 'text-amber-800'}`}>{weather.recommendation}</p>
+        </div>
+      )}
+
+      {/* Map */}
+      {venueData.length > 0 && (
+        <div className="mb-4">
+          <VenueMap venues={venueData} height="180px" />
+        </div>
+      )}
 
       {/* Join / Leave button */}
       {!isParticipant ? (
@@ -192,6 +298,71 @@ export default function EventDetailPage() {
       </div>
 
       {/* Polls */}
+      {/* Create poll (captain only) */}
+      {isCaptain && isParticipant && (
+        <div className="mb-4">
+          {!showPollForm ? (
+            <button
+              onClick={() => setShowPollForm(true)}
+              className="w-full py-2.5 rounded-xl border border-dashed border-warm-300 bg-warm-50 text-warm-700 text-xs font-medium flex items-center justify-center gap-2 cursor-pointer hover:bg-warm-100 transition-colors"
+            >
+              <Plus size={14} />
+              Create a poll
+            </button>
+          ) : (
+            <div className="bg-white rounded-2xl border border-warm-100 p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <BarChart3 size={16} className="text-warm-700" />
+                  New poll
+                </h3>
+                <button onClick={() => setShowPollForm(false)} className="text-warm-500 bg-transparent border-none cursor-pointer p-0">
+                  <X size={16} />
+                </button>
+              </div>
+              <input
+                type="text"
+                placeholder="Question — e.g. What time works best?"
+                value={pollQuestion}
+                onChange={(e) => setPollQuestion(e.target.value)}
+                className="w-full px-3 py-2.5 border border-warm-200 rounded-xl text-sm bg-white focus:outline-none focus:border-green-500 mb-2"
+              />
+              {pollOptions.map((opt, i) => (
+                <input
+                  key={i}
+                  type="text"
+                  placeholder={`Option ${i + 1}`}
+                  value={opt}
+                  onChange={(e) => {
+                    const next = [...pollOptions];
+                    next[i] = e.target.value;
+                    setPollOptions(next);
+                  }}
+                  className="w-full px-3 py-2 border border-warm-200 rounded-lg text-xs bg-white focus:outline-none focus:border-green-500 mb-1.5"
+                />
+              ))}
+              <div className="flex gap-2 mt-2">
+                <button
+                  onClick={() => setPollOptions((prev) => [...prev, ''])}
+                  className="text-xs text-green-700 bg-transparent border-none cursor-pointer flex items-center gap-1"
+                >
+                  <Plus size={12} />
+                  Add option
+                </button>
+                <div className="flex-1" />
+                <button
+                  onClick={handleCreatePoll}
+                  disabled={creatingPoll}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg cursor-pointer border-none transition-colors disabled:opacity-60"
+                >
+                  {creatingPoll ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {polls.map((poll) => (
         <div key={poll.id} className="bg-white rounded-2xl border border-warm-100 p-4 mb-4">
           <div className="flex items-center gap-2 mb-3">

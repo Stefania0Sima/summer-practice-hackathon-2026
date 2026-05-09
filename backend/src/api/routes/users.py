@@ -34,6 +34,25 @@ def get_me(user: UserRecord = Depends(get_current_user), db: Session = Depends(g
             "sport_name": us.sport.name,
             "skill_level": us.skill_level,
         })
+    from db.schema import EventParticipant
+    events_joined = db.query(EventParticipant).filter(EventParticipant.user_id == user.id).count()
+    xp = user.xp or 0
+    badges = []
+    if events_joined >= 1:
+        badges.append({"key": "first_match", "name": "First Match", "icon": "trophy"})
+    if events_joined >= 5:
+        badges.append({"key": "team_player", "name": "Team Player", "icon": "users"})
+    if events_joined >= 10:
+        badges.append({"key": "veteran", "name": "Veteran", "icon": "flame"})
+    if len(sports) >= 3:
+        badges.append({"key": "multi_sport", "name": "Multi-Sport", "icon": "star"})
+    if user.bio:
+        badges.append({"key": "storyteller", "name": "Storyteller", "icon": "pen"})
+    if user.avatar_url:
+        badges.append({"key": "photo_ready", "name": "Photo Ready", "icon": "camera"})
+
+    level = 1 + xp // 50
+
     return {
         "id": user.id,
         "email": user.email,
@@ -41,6 +60,10 @@ def get_me(user: UserRecord = Depends(get_current_user), db: Session = Depends(g
         "bio": user.bio,
         "city": user.city,
         "avatar_url": user.avatar_url,
+        "xp": xp,
+        "level": level,
+        "badges": badges,
+        "events_joined": events_joined,
         "created_at": user.created_at.isoformat() if user.created_at else None,
         "sports": sports,
     }

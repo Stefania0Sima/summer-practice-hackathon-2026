@@ -13,6 +13,7 @@ class UserRecord(Base):
     bio = Column(Text, nullable=True)
     city = Column(String, nullable=True)
     avatar_url = Column(String, nullable=True)
+    xp = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     sports = relationship("UserSport", back_populates="user", cascade="all, delete-orphan")
@@ -72,6 +73,7 @@ class Event(Base):
     is_public = Column(Boolean, default=True)
     captain_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     source = Column(String, default="manual")
+    compatibility_score = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     captain = relationship("UserRecord", foreign_keys=[captain_id])

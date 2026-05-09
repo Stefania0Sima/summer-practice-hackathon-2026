@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 
 import { AuthProvider, useAuth } from './scripts/useAuth'
+import { ToastProvider } from './components/Toast'
 import AppLayout from './layouts/AppLayout'
 
 import LoginPage from './pages/LoginPage'
@@ -62,7 +63,9 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
+        <ToastProvider>
+          <AppRoutes />
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,

@@ -4,9 +4,12 @@ import { api } from '../config/api';
 import { ArrowLeft, Calendar, Clock, MapPin, Users, FileText, Globe, Lock, Plus, Star } from 'lucide-react';
 import { SPORTS } from '../config/sports';
 import { SportIcon } from '../components/SportIcons';
+import VenueMap from '../components/VenueMap';
+import { useToast } from '../components/Toast';
 
 export default function CreateEventPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [selectedSport, setSelectedSport] = useState(null);
   const [title, setTitle] = useState('');
   const [date, setDate] = useState('');
@@ -44,6 +47,7 @@ export default function CreateEventPage() {
         max_players: parseInt(maxPlayers) || 10,
         is_public: isPublic,
       });
+      toast('Event created!');
       navigate(`/events/${result.id}`);
     } catch (err) {
       setError(err.message || 'Failed to create event');
@@ -158,6 +162,12 @@ export default function CreateEventPage() {
             {venues.length > 0 && (
               <div className="mt-2 flex flex-col gap-1.5">
                 <p className="text-[10px] text-warm-500 font-semibold">Suggested venues:</p>
+                <VenueMap
+                  venues={venues}
+                  selectedVenue={venues.find((v) => location.includes(v.name))}
+                  onSelectVenue={(v) => setLocation(`${v.name}, ${v.address}`)}
+                  height="180px"
+                />
                 {venues.slice(0, 3).map((v) => (
                   <button
                     key={v.id}

@@ -4,9 +4,11 @@ import { api } from '../config/api';
 import { ArrowLeft, ArrowRight, Camera, Sparkles, MapPin, Loader2 } from 'lucide-react';
 import { SPORTS, SKILL_LEVELS } from '../config/sports';
 import { SportIcon } from '../components/SportIcons';
+import { useToast } from '../components/Toast';
 
 export default function OnboardingPage() {
   const navigate = useNavigate();
+  const toast = useToast();
   const [step, setStep] = useState(0);
   const [selectedSports, setSelectedSports] = useState([]);
   const [skillLevels, setSkillLevels] = useState({});
@@ -15,6 +17,9 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState(null);
   const [analyzingBio, setAnalyzingBio] = useState(false);
+  const [analyzingPhoto, setAnalyzingPhoto] = useState(false);
+  const [photoSuggestions, setPhotoSuggestions] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
 
   function toggleSport(id) {
     setSelectedSports((prev) =>
@@ -28,6 +33,7 @@ export default function OnboardingPage() {
     try {
       const result = await api.post('/api/ai/analyze-bio', { bio });
       setAiSuggestions(result);
+      toast('Bio analyzed! Sports added to your picks.');
       if (result.sports?.length > 0) {
         setSelectedSports((prev) => {
           const combined = new Set([...prev, ...result.sports]);
@@ -44,6 +50,7 @@ export default function OnboardingPage() {
   async function handleAvatarUpload(e) {
     const file = e.target.files?.[0];
     if (!file) return;
+    setAvatarPreview(URL.createObjectURL(file));
     const form = new FormData();
     form.append('file', file);
     try {
@@ -53,6 +60,22 @@ export default function OnboardingPage() {
         body: form,
       });
     } catch {}
+  }
+
+  async function handleAnalyzePhoto() {
+    setAnalyzingPhoto(true);
+    try {
+      const result = await api.post('/api/ai/analyze-photo');
+      setPhotoSuggestions(result);
+      toast('Photo analyzed! Sports detected.');
+      if (result.sports?.length > 0) {
+        setSelectedSports((prev) => [...new Set([...prev, ...result.sports])]);
+      }
+      if (result.skill_hints) {
+        setSkillLevels((prev) => ({ ...prev, ...result.skill_hints }));
+      }
+    } catch {}
+    finally { setAnalyzingPhoto(false); }
   }
 
   async function handleFinish() {
@@ -191,13 +214,43 @@ export default function OnboardingPage() {
             <p className="text-sm text-warm-500 mb-5">Tell people a bit about yourself</p>
 
             {/* Avatar upload */}
-            <div className="flex flex-col items-center mb-6">
-              <label className="w-20 h-20 rounded-full bg-green-100 border-2 border-dashed border-green-400 flex items-center justify-center cursor-pointer hover:bg-green-200 transition-colors">
-                <Camera size={28} className="text-green-700" />
+            <div className="flex flex-col items-center mb-4">
+              <label className="w-20 h-20 rounded-full bg-green-100 border-2 border-dashed border-green-400 flex items-center justify-center cursor-pointer hover:bg-green-200 transition-colors overflow-hidden">
+                {avatarPreview ? (
+                  <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                ) : (
+                  <Camera size={28} className="text-green-700" />
+                )}
                 <input type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
               </label>
               <p className="text-xs text-warm-500 mt-2">Tap to upload photo (optional)</p>
             </div>
+
+            {avatarPreview && (
+              <button
+                onClick={handleAnalyzePhoto}
+                disabled={analyzingPhoto}
+                type="button"
+                className="w-full bg-purple-50 rounded-xl px-4 py-3 mb-4 flex items-center gap-2.5 cursor-pointer border border-purple-200 hover:bg-purple-100 transition-colors disabled:opacity-50"
+              >
+                {analyzingPhoto ? (
+                  <Loader2 size={16} className="text-purple-700 animate-spin shrink-0" />
+                ) : (
+                  <Camera size={16} className="text-purple-700 shrink-0" />
+                )}
+                <p className="text-xs text-purple-800 text-left leading-relaxed">
+                  {analyzingPhoto ? 'Analyzing your photo...' : 'Let AI detect sports from your photo'}
+                </p>
+              </button>
+            )}
+
+            {photoSuggestions?.sports?.length > 0 && (
+              <div className="bg-purple-50 rounded-xl px-4 py-3 mb-4 border border-purple-200">
+                <p className="text-xs font-semibold text-purple-800 mb-1">AI detected from your photo:</p>
+                <p className="text-xs text-purple-700">{photoSuggestions.sports.join(', ')}</p>
+                <p className="text-[10px] text-purple-600 mt-1">Added to your selections on step 1</p>
+              </div>
+            )}
 
             <div className="flex flex-col gap-3 mb-4">
               <textarea

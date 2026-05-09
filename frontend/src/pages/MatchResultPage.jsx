@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../config/api';
-import { ArrowLeft, Crown, Sparkles, Users, RefreshCw, Loader2 } from 'lucide-react';
+import { ArrowLeft, Crown, Sparkles, Users, RefreshCw, Loader2, X } from 'lucide-react';
 import { SPORTS } from '../config/sports';
 import { SportIcon } from '../components/SportIcons';
+import { useToast } from '../components/Toast';
 
 export default function MatchResultPage() {
   const [params] = useSearchParams();
@@ -13,9 +14,12 @@ export default function MatchResultPage() {
   const matched = params.get('matched') === 'true';
   const sport = SPORTS.find((s) => s.id === sportId);
 
+  const toast = useToast();
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(!matched);
   const [retrying, setRetrying] = useState(false);
+  const [confirmed, setConfirmed] = useState(false);
+  const [declining, setDeclining] = useState(false);
 
   useEffect(() => {
     if (eventId && matched) {
@@ -29,7 +33,7 @@ export default function MatchResultPage() {
             is_captain: p.is_captain,
           })),
           event_id: ev.id,
-          compatibility_score: 85,
+          compatibility_score: ev.compatibility_score,
           sport_name: sport?.name,
         });
       }).catch(() => {});
@@ -51,6 +55,30 @@ export default function MatchResultPage() {
     setRetrying(true);
     await runMatch();
     setRetrying(false);
+  }
+
+  async function handleConfirm() {
+    if (!result?.event_id) return;
+    try {
+      await api.post(`/api/events/${result.event_id}/join`);
+      setConfirmed(true);
+      toast('Match confirmed! +10 XP');
+    } catch {
+      toast('Failed to confirm match', 'error');
+    }
+  }
+
+  async function handleDecline() {
+    if (!result?.event_id) return;
+    setDeclining(true);
+    try {
+      await api.post(`/api/events/${result.event_id}/decline`);
+      toast('Match declined', 'info');
+      navigate('/home');
+    } catch {
+      toast('Failed to decline', 'error');
+      setDeclining(false);
+    }
   }
 
   function handleJoin() {
@@ -152,7 +180,25 @@ export default function MatchResultPage() {
         )}
 
         {/* Actions */}
-        {result?.matched && result?.event_id ? (
+        {result?.matched && result?.event_id && !confirmed ? (
+          <div className="flex flex-col gap-2 mb-2">
+            <button
+              onClick={handleConfirm}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer border-none"
+            >
+              <Users size={18} />
+              Accept match
+            </button>
+            <button
+              onClick={handleDecline}
+              disabled={declining}
+              className="w-full py-3 rounded-xl border border-red-200 bg-red-50 text-red-600 text-sm font-medium flex items-center justify-center gap-2 cursor-pointer hover:bg-red-100 transition-colors"
+            >
+              <X size={16} />
+              {declining ? 'Declining...' : 'Decline'}
+            </button>
+          </div>
+        ) : result?.matched && confirmed ? (
           <button
             onClick={handleJoin}
             className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 transition-colors cursor-pointer border-none mb-2"

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
@@ -94,6 +95,7 @@ def get_event(event_id: int, user: UserRecord = Depends(get_current_user), db: S
         "captain_id": event.captain_id,
         "captain_name": captain_name,
         "source": event.source,
+        "compatibility_score": event.compatibility_score,
         "participant_count": len(participants),
         "participants": participants,
     }
@@ -110,6 +112,11 @@ def join_event(event_id: int, user: UserRecord = Depends(get_current_user), db: 
         EventParticipant.user_id == user.id,
     ).first()
     if existing:
+        if existing.status == "pending":
+            existing.status = "confirmed"
+            user.xp = (user.xp or 0) + 10
+            db.commit()
+            return {"ok": True, "status": "confirmed"}
         return {"ok": True, "status": existing.status}
 
     count = db.query(EventParticipant).filter(EventParticipant.event_id == event_id).count()
@@ -117,8 +124,20 @@ def join_event(event_id: int, user: UserRecord = Depends(get_current_user), db: 
         raise HTTPException(status_code=400, detail="Event is full")
 
     db.add(EventParticipant(event_id=event_id, user_id=user.id, status="confirmed"))
+    user.xp = (user.xp or 0) + 10
     db.commit()
     return {"ok": True, "status": "confirmed"}
+
+
+@router.post("/{event_id}/decline")
+def decline_event(event_id: int, user: UserRecord = Depends(get_current_user), db: Session = Depends(get_db)):
+    db.query(EventParticipant).filter(
+        EventParticipant.event_id == event_id,
+        EventParticipant.user_id == user.id,
+        EventParticipant.status == "pending",
+    ).delete()
+    db.commit()
+    return {"ok": True}
 
 
 @router.post("/{event_id}/leave")
@@ -166,6 +185,36 @@ def send_message(event_id: int, body: SendMessage, user: UserRecord = Depends(ge
         "is_captain": user.id == event.captain_id,
         "created_at": msg.created_at.isoformat() if msg.created_at else None,
     }
+
+
+@router.get("/{event_id}/calendar")
+def get_calendar(event_id: int, db: Session = Depends(get_db)):
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    dt_start = event.date.replace("-", "")
+    time_str = (event.time or "18:00").replace(":", "") + "00"
+    hour = int((event.time or "18:00").split(":")[0])
+    end_hour = min(hour + 2, 23)
+    time_end = f"{end_hour:02d}{(event.time or '18:00').split(':')[1]}00"
+
+    ics = f"""BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//ShowUp2Move//EN
+BEGIN:VEVENT
+DTSTART:{dt_start}T{time_str}
+DTEND:{dt_start}T{time_end}
+SUMMARY:{event.title}
+LOCATION:{event.location or ''}
+DESCRIPTION:{event.description or f'ShowUp2Move {event.sport_key} event'}
+END:VEVENT
+END:VCALENDAR"""
+    return PlainTextResponse(
+        content=ics,
+        media_type="text/calendar",
+        headers={"Content-Disposition": f'attachment; filename="event_{event.id}.ics"'},
+    )
 
 
 def _event_summary(e: Event) -> dict:
