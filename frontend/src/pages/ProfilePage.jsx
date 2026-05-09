@@ -2,14 +2,18 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../scripts/useAuth';
 import { api } from '../config/api';
-import { Edit, LogOut, Trophy, Flame, Users, MapPin, Check, X, Camera, Star, Pen, Sparkles, Loader2 } from 'lucide-react';
+import { Edit, LogOut, Trophy, Flame, Users, MapPin, Check, X, Camera, Star, Pen, Sparkles, Loader2, Moon, Sun, Globe } from 'lucide-react';
 import { SportIcon } from '../components/SportIcons';
 import { useToast } from '../components/Toast';
+import { useTheme } from '../scripts/useTheme';
+import { useLanguage } from '../scripts/useLanguage';
 
 export default function ProfilePage() {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const { dark, toggle: toggleTheme } = useTheme();
+  const { lang, setLang, t } = useLanguage();
   const [profile, setProfile] = useState(null);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
@@ -40,9 +44,9 @@ export default function ProfilePage() {
       updateUser({ name });
       setProfile((p) => ({ ...p, name, bio, city }));
       setEditing(false);
-      toast('Profile updated!');
+      toast(t('profileUpdated'));
     } catch {
-      toast('Failed to save profile', 'error');
+      toast(t('failedSave'), 'error');
     } finally {
       setSaving(false);
     }
@@ -61,9 +65,9 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       setProfile((p) => ({ ...p, avatar_url: data.avatar_url }));
-      toast('Photo uploaded!');
+      toast(t('photoUploaded'));
     } catch {
-      toast('Failed to upload photo', 'error');
+      toast(t('failedUpload'), 'error');
     }
   }
 
@@ -88,6 +92,14 @@ export default function ProfilePage() {
   const displayName = profile?.name || user?.name || 'User';
   const initials = displayName.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
 
+  const cardClass = dark ? 'bg-dark-card rounded-2xl border border-dark-border' : 'bg-white rounded-2xl border border-warm-100';
+  const textMain = dark ? 'text-dark-text' : 'text-warm-900';
+  const textMuted = dark ? 'text-dark-muted' : 'text-warm-500';
+  const textSub = dark ? 'text-dark-text' : 'text-warm-700';
+  const inputClass = dark
+    ? 'bg-dark-card border-dark-border text-dark-text placeholder:text-dark-muted'
+    : 'bg-white border-warm-200';
+
   return (
     <div className="flex-1 px-5 pt-8 pb-6">
       <div className="max-w-sm mx-auto">
@@ -111,51 +123,81 @@ export default function ProfilePage() {
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="text-lg font-bold text-warm-900 text-center border border-warm-200 rounded-lg px-3 py-1 w-full"
+              className={`text-lg font-bold text-center border rounded-lg px-3 py-1 w-full ${textMain} ${inputClass}`}
             />
           ) : (
-            <h2 className="text-lg font-bold text-warm-900">{displayName}</h2>
+            <h2 className={`text-lg font-bold ${textMain}`}>{displayName}</h2>
           )}
 
           {profile?.city && !editing && (
-            <p className="flex items-center justify-center gap-1 text-xs text-warm-500 mt-1">
+            <p className={`flex items-center justify-center gap-1 text-xs mt-1 ${textMuted}`}>
               <MapPin size={12} />
               {profile.city}
             </p>
           )}
         </div>
 
+        {/* Theme & Language toggles */}
+        <div className={`${cardClass} p-4 mb-3`}>
+          <div className="flex items-center justify-between">
+            <button
+              onClick={toggleTheme}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer border transition-colors ${
+                dark
+                  ? 'bg-dark-bg border-dark-border text-dark-text hover:bg-dark-hover'
+                  : 'bg-warm-50 border-warm-200 text-warm-700 hover:bg-warm-100'
+              }`}
+            >
+              {dark ? <Sun size={14} /> : <Moon size={14} />}
+              {dark ? 'Light' : 'Dark'}
+            </button>
+            <button
+              onClick={() => setLang(lang === 'en' ? 'ro' : 'en')}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium cursor-pointer border transition-colors ${
+                dark
+                  ? 'bg-dark-bg border-dark-border text-dark-text hover:bg-dark-hover'
+                  : 'bg-warm-50 border-warm-200 text-warm-700 hover:bg-warm-100'
+              }`}
+            >
+              <Globe size={14} />
+              {lang === 'en' ? '🇷🇴 Română' : '🇬🇧 English'}
+            </button>
+          </div>
+        </div>
+
         {/* XP & Level */}
         {profile?.xp !== undefined && (
-          <div className="bg-white rounded-2xl border border-warm-100 p-4 mb-3">
+          <div className={`${cardClass} p-4 mb-3`}>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-sm font-semibold">Level {profile.level || 1}</h3>
-              <span className="text-xs text-warm-500">{profile.xp || 0} XP</span>
+              <h3 className={`text-sm font-semibold ${textMain}`}>{t('level')} {profile.level || 1}</h3>
+              <span className={`text-xs ${textMuted}`}>{profile.xp || 0} XP</span>
             </div>
-            <div className="w-full h-2 bg-warm-100 rounded-full overflow-hidden">
+            <div className={`w-full h-2 rounded-full overflow-hidden ${dark ? 'bg-dark-border' : 'bg-warm-100'}`}>
               <div
                 className="h-full bg-green-500 rounded-full transition-all duration-500"
                 style={{ width: `${((profile.xp || 0) % 50) * 2}%` }}
               />
             </div>
-            <p className="text-[10px] text-warm-500 mt-1">{50 - ((profile.xp || 0) % 50)} XP to next level</p>
+            <p className={`text-[10px] mt-1 ${textMuted}`}>{50 - ((profile.xp || 0) % 50)} {t('xpToNext')}</p>
             {profile.events_joined > 0 && (
-              <p className="text-xs text-warm-500 mt-1">{profile.events_joined} event{profile.events_joined !== 1 ? 's' : ''} joined</p>
+              <p className={`text-xs mt-1 ${textMuted}`}>{profile.events_joined} {t('eventsJoined')}</p>
             )}
           </div>
         )}
 
         {/* Badges */}
         {profile?.badges?.length > 0 && (
-          <div className="bg-white rounded-2xl border border-warm-100 p-4 mb-3">
-            <h3 className="text-sm font-semibold mb-3">Badges</h3>
+          <div className={`${cardClass} p-4 mb-3`}>
+            <h3 className={`text-sm font-semibold mb-3 ${textMain}`}>{t('badges')}</h3>
             <div className="grid grid-cols-3 gap-2">
               {profile.badges.map((badge) => {
                 const Icon = BADGE_ICONS[badge.icon] || Trophy;
                 return (
-                  <div key={badge.key} className="flex flex-col items-center gap-1.5 py-3 bg-green-50 rounded-xl">
+                  <div key={badge.key} className={`flex flex-col items-center gap-1.5 py-3 rounded-xl ${
+                    dark ? 'bg-green-900/30' : 'bg-green-50'
+                  }`}>
                     <Icon size={20} className="text-green-700" />
-                    <span className="text-[10px] font-semibold text-green-800 text-center">{badge.name}</span>
+                    <span className={`text-[10px] font-semibold text-center ${dark ? 'text-green-400' : 'text-green-800'}`}>{badge.name}</span>
                   </div>
                 );
               })}
@@ -177,21 +219,21 @@ export default function ProfilePage() {
               <Sparkles size={16} className="text-purple-700 shrink-0" />
             )}
             <p className="text-xs text-purple-800 text-left leading-relaxed">
-              {analyzingPhoto ? 'Analyzing your photo...' : 'Let AI detect sports from your photo'}
+              {analyzingPhoto ? t('analyzingPhoto') : t('analyzePhoto')}
             </p>
           </button>
         )}
 
         {photoSuggestions?.sports?.length > 0 && (
           <div className="bg-purple-50 rounded-xl px-4 py-3 mb-3 border border-purple-200">
-            <p className="text-xs font-semibold text-purple-800 mb-1">AI detected from your photo:</p>
+            <p className="text-xs font-semibold text-purple-800 mb-1">{t('aiDetected')}</p>
             <p className="text-xs text-purple-700">{photoSuggestions.sports.join(', ')}</p>
           </div>
         )}
 
         {/* Bio */}
-        <div className="bg-white rounded-2xl border border-warm-100 p-4 mb-3">
-          <h3 className="text-sm font-semibold mb-2">About</h3>
+        <div className={`${cardClass} p-4 mb-3`}>
+          <h3 className={`text-sm font-semibold mb-2 ${textMain}`}>{t('about')}</h3>
           {editing ? (
             <>
               <textarea
@@ -199,47 +241,49 @@ export default function ProfilePage() {
                 onChange={(e) => setBio(e.target.value)}
                 rows={3}
                 placeholder="Tell people about yourself and what sports you enjoy..."
-                className="w-full px-3 py-2 border border-warm-200 rounded-xl text-xs bg-white focus:outline-none focus:border-green-500 resize-y"
+                className={`w-full px-3 py-2 border rounded-xl text-xs focus:outline-none focus:border-green-500 resize-y ${inputClass}`}
               />
               <div className="mt-2">
-                <label className="text-xs font-semibold text-warm-700 mb-1 block">City</label>
+                <label className={`text-xs font-semibold mb-1 block ${textSub}`}>{t('yourCity')}</label>
                 <div className="relative">
-                  <MapPin size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-warm-500" />
+                  <MapPin size={14} className={`absolute left-3 top-1/2 -translate-y-1/2 ${textMuted}`} />
                   <input
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    placeholder="Your city"
-                    className="w-full pl-9 pr-3 py-2 border border-warm-200 rounded-xl text-xs bg-white focus:outline-none focus:border-green-500"
+                    placeholder={t('yourCity')}
+                    className={`w-full pl-9 pr-3 py-2 border rounded-xl text-xs focus:outline-none focus:border-green-500 ${inputClass}`}
                   />
                 </div>
               </div>
             </>
           ) : (
-            <p className="text-xs text-warm-700 leading-relaxed">
-              {profile?.bio || 'No bio yet. Tap edit to add one!'}
+            <p className={`text-xs leading-relaxed ${textSub}`}>
+              {profile?.bio || t('noBioYet')}
             </p>
           )}
         </div>
 
         {/* Sports */}
-        <div className="bg-white rounded-2xl border border-warm-100 p-4 mb-3">
-          <h3 className="text-sm font-semibold mb-3">My sports</h3>
+        <div className={`${cardClass} p-4 mb-3`}>
+          <h3 className={`text-sm font-semibold mb-3 ${textMain}`}>{t('mySports')}</h3>
           {profile?.sports?.length > 0 ? (
             <div className="flex flex-col gap-2.5">
               {profile.sports.map((sport) => (
                 <div key={sport.sport_key} className="flex items-center justify-between">
                   <div className="flex items-center gap-2.5">
                     <SportIcon sportId={sport.sport_key} size={20} className="text-green-700" />
-                    <span className="text-sm font-medium">{sport.sport_name}</span>
+                    <span className={`text-sm font-medium ${textMain}`}>{sport.sport_name}</span>
                   </div>
-                  <span className="text-xs bg-green-50 text-green-800 px-2.5 py-1 rounded-full font-medium">
+                  <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${
+                    dark ? 'bg-green-900/30 text-green-400' : 'bg-green-50 text-green-800'
+                  }`}>
                     {sport.skill_level}
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-xs text-warm-500">No sports selected yet. Complete onboarding to add sports!</p>
+            <p className={`text-xs ${textMuted}`}>{t('noSportsYet')}</p>
           )}
         </div>
 
@@ -252,23 +296,31 @@ export default function ProfilePage() {
               className="flex-1 py-3 rounded-xl bg-green-600 text-white font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer border-none hover:bg-green-700 transition-colors"
             >
               <Check size={16} />
-              {saving ? 'Saving...' : 'Save'}
+              {saving ? t('saving') : t('save')}
             </button>
             <button
               onClick={() => setEditing(false)}
-              className="px-5 py-3 rounded-xl border-[1.5px] border-warm-200 bg-white text-warm-700 text-sm flex items-center justify-center gap-2 cursor-pointer hover:bg-warm-50 transition-colors"
+              className={`px-5 py-3 rounded-xl border-[1.5px] text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors ${
+                dark
+                  ? 'border-dark-border bg-dark-card text-dark-text hover:bg-dark-hover'
+                  : 'border-warm-200 bg-white text-warm-700 hover:bg-warm-50'
+              }`}
             >
               <X size={16} />
-              Cancel
+              {t('cancel')}
             </button>
           </div>
         ) : (
           <button
             onClick={() => setEditing(true)}
-            className="w-full py-3 rounded-xl border-[1.5px] border-warm-200 bg-white text-warm-700 font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer hover:bg-warm-50 transition-colors mb-2"
+            className={`w-full py-3 rounded-xl border-[1.5px] font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer transition-colors mb-2 ${
+              dark
+                ? 'border-dark-border bg-dark-card text-dark-text hover:bg-dark-hover'
+                : 'border-warm-200 bg-white text-warm-700 hover:bg-warm-50'
+            }`}
           >
             <Edit size={16} />
-            Edit profile
+            {t('editProfile')}
           </button>
         )}
         <button
@@ -276,7 +328,7 @@ export default function ProfilePage() {
           className="w-full py-3 rounded-xl bg-transparent border-none text-red-500 text-sm font-medium flex items-center justify-center gap-2 cursor-pointer hover:bg-red-50 transition-colors"
         >
           <LogOut size={16} />
-          Log out
+          {t('logOut')}
         </button>
       </div>
     </div>

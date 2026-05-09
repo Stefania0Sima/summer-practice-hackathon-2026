@@ -4,6 +4,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 
 import { AuthProvider, useAuth } from './scripts/useAuth'
+import { ThemeProvider } from './scripts/useTheme'
+import { LanguageProvider } from './scripts/useLanguage'
 import { ToastProvider } from './components/Toast'
 import AppLayout from './layouts/AppLayout'
 
@@ -62,11 +64,15 @@ function AppRoutes() {
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>
-      <AuthProvider>
-        <ToastProvider>
-          <AppRoutes />
-        </ToastProvider>
-      </AuthProvider>
+      <ThemeProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <ToastProvider>
+              <AppRoutes />
+            </ToastProvider>
+          </AuthProvider>
+        </LanguageProvider>
+      </ThemeProvider>
     </BrowserRouter>
   </StrictMode>,
 )

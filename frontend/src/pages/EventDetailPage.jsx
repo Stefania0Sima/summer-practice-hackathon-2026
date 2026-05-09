@@ -6,12 +6,16 @@ import { ArrowLeft, Crown, MapPin, Send, BarChart3, Clock, Users, UserPlus, LogO
 import { SportIcon } from '../components/SportIcons';
 import VenueMap from '../components/VenueMap';
 import { useToast } from '../components/Toast';
+import { useTheme } from '../scripts/useTheme';
+import { useLanguage } from '../scripts/useLanguage';
 
 export default function EventDetailPage() {
   const { id } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
+  const { dark } = useTheme();
+  const { t } = useLanguage();
   const [event, setEvent] = useState(null);
   const [messages, setMessages] = useState([]);
   const [polls, setPolls] = useState([]);
@@ -26,6 +30,13 @@ export default function EventDetailPage() {
   const [pollOptions, setPollOptions] = useState(['', '']);
   const [creatingPoll, setCreatingPoll] = useState(false);
   const chatEndRef = useRef(null);
+
+  const cardClass = dark ? 'bg-dark-card border-dark-border' : 'bg-white border-warm-100';
+  const textMain = dark ? 'text-dark-text' : 'text-warm-900';
+  const textMuted = dark ? 'text-dark-muted' : 'text-warm-500';
+  const inputClass = dark
+    ? 'bg-dark-card border-dark-border text-dark-text placeholder:text-dark-muted'
+    : 'bg-white border-warm-200';
 
   const isParticipant = event?.participants?.some((p) => p.id === user?.id);
   const isCaptain = event?.captain_id === user?.id;
@@ -96,7 +107,7 @@ export default function EventDetailPage() {
   async function handleLeave() {
     try {
       await api.post(`/api/events/${id}/leave`);
-      toast('You left the event', 'info');
+      toast(t('leaveEvent'), 'info');
       await loadAll();
     } catch {
       toast('Failed to leave event', 'error');
@@ -153,7 +164,7 @@ export default function EventDetailPage() {
   if (loading) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <p className="text-warm-500 text-sm">Loading event...</p>
+        <p className={`text-sm ${textMuted}`}>{t('loadingEvent')}</p>
       </div>
     );
   }
@@ -161,8 +172,8 @@ export default function EventDetailPage() {
   if (!event) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center px-5">
-        <p className="text-warm-500 text-sm mb-4">Event not found</p>
-        <button onClick={() => navigate(-1)} className="text-green-700 text-sm font-semibold cursor-pointer bg-transparent border-none">Go back</button>
+        <p className={`text-sm mb-4 ${textMuted}`}>{t('eventNotFound')}</p>
+        <button onClick={() => navigate(-1)} className="text-green-700 text-sm font-semibold cursor-pointer bg-transparent border-none">{t('goBack')}</button>
       </div>
     );
   }
@@ -172,26 +183,26 @@ export default function EventDetailPage() {
       {/* Back */}
       <button
         onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 text-sm text-warm-500 bg-transparent border-none cursor-pointer mb-4"
+        className={`flex items-center gap-1.5 text-sm bg-transparent border-none cursor-pointer mb-4 ${textMuted}`}
       >
         <ArrowLeft size={16} />
-        Back
+        {t('back')}
       </button>
 
       {/* Event header */}
-      <div className="bg-white rounded-2xl border border-warm-100 p-5 mb-4">
+      <div className={`rounded-2xl border p-5 mb-4 ${cardClass}`}>
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-12 h-12 bg-green-50 rounded-xl flex items-center justify-center">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${dark ? 'bg-green-900/40' : 'bg-green-50'}`}>
             <SportIcon sportId={event.sport_key} size={26} className="text-green-700" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-warm-900">{event.title}</h2>
+            <h2 className={`text-lg font-bold ${textMain}`}>{event.title}</h2>
             <div className="flex items-center gap-3 mt-0.5">
-              <span className="flex items-center gap-1 text-xs text-warm-500">
+              <span className={`flex items-center gap-1 text-xs ${textMuted}`}>
                 <Clock size={12} />
                 {event.date}{event.time ? `, ${event.time}` : ''}
               </span>
-              <span className="flex items-center gap-1 text-xs text-warm-500">
+              <span className={`flex items-center gap-1 text-xs ${textMuted}`}>
                 <Users size={12} />
                 {event.participant_count}/{event.max_players}
               </span>
@@ -200,42 +211,52 @@ export default function EventDetailPage() {
         </div>
         <div className="flex gap-2 flex-wrap">
           {event.location && (
-            <span className="flex items-center gap-1.5 text-xs bg-green-50 text-green-800 px-3 py-1.5 rounded-full font-medium">
+            <span className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium ${
+              dark ? 'bg-green-900/30 text-green-400' : 'bg-green-50 text-green-800'
+            }`}>
               <MapPin size={12} />
               {event.location}
             </span>
           )}
           {event.captain_name && (
-            <span className="flex items-center gap-1.5 text-xs bg-amber-50 text-amber-700 px-3 py-1.5 rounded-full font-medium">
+            <span className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium ${
+              dark ? 'bg-amber-900/30 text-amber-400' : 'bg-amber-50 text-amber-700'
+            }`}>
               <Crown size={12} />
-              Captain: {event.captain_name}
+              {t('captain')}: {event.captain_name}
             </span>
           )}
         </div>
         {event.description && (
-          <p className="text-xs text-warm-700 mt-3 leading-relaxed">{event.description}</p>
+          <p className={`text-xs mt-3 leading-relaxed ${dark ? 'text-dark-text' : 'text-warm-700'}`}>{event.description}</p>
         )}
 
-        {/* Action row: share, calendar, compatibility */}
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-warm-100 flex-wrap">
+        {/* Action row */}
+        <div className={`flex items-center gap-2 mt-3 pt-3 border-t flex-wrap ${dark ? 'border-dark-border' : 'border-warm-100'}`}>
           <button
             onClick={handleShare}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-warm-50 text-warm-700 cursor-pointer border-none hover:bg-warm-100 transition-colors"
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full cursor-pointer border-none transition-colors ${
+              dark ? 'bg-dark-bg text-dark-text hover:bg-dark-hover' : 'bg-warm-50 text-warm-700 hover:bg-warm-100'
+            }`}
           >
             {copied ? <Check size={12} className="text-green-600" /> : <Share2 size={12} />}
-            {copied ? 'Copied!' : 'Share'}
+            {copied ? t('copied') : t('share')}
           </button>
           <button
             onClick={handleCalendarDownload}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-warm-50 text-warm-700 cursor-pointer border-none hover:bg-warm-100 transition-colors"
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full cursor-pointer border-none transition-colors ${
+              dark ? 'bg-dark-bg text-dark-text hover:bg-dark-hover' : 'bg-warm-50 text-warm-700 hover:bg-warm-100'
+            }`}
           >
             <CalendarPlus size={12} />
-            Add to calendar
+            {t('addToCalendar')}
           </button>
           {event.compatibility_score && (
-            <span className="flex items-center gap-1.5 text-xs bg-green-50 text-green-800 px-3 py-1.5 rounded-full font-medium">
+            <span className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full font-medium ${
+              dark ? 'bg-green-900/30 text-green-400' : 'bg-green-50 text-green-800'
+            }`}>
               <Sparkles size={12} />
-              {event.compatibility_score}% compatible
+              {event.compatibility_score}% {t('compatible')}
             </span>
           )}
         </div>
@@ -263,7 +284,7 @@ export default function EventDetailPage() {
           className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 rounded-xl text-sm flex items-center justify-center gap-2 cursor-pointer border-none transition-colors mb-4"
         >
           <UserPlus size={16} />
-          Join this event
+          {t('joinEvent')}
         </button>
       ) : (
         <button
@@ -271,13 +292,13 @@ export default function EventDetailPage() {
           className="w-full py-2.5 rounded-xl border border-red-200 bg-red-50 text-red-600 text-xs font-medium flex items-center justify-center gap-2 cursor-pointer hover:bg-red-100 transition-colors mb-4"
         >
           <LogOut size={14} />
-          Leave event
+          {t('leaveEvent')}
         </button>
       )}
 
       {/* Players strip */}
       <div className="mb-4">
-        <h3 className="text-sm font-semibold mb-3">Players</h3>
+        <h3 className={`text-sm font-semibold mb-3 ${textMain}`}>{t('players')}</h3>
         <div className="flex gap-2 overflow-x-auto pb-1">
           {event.participants.map((p) => {
             const initials = (p.name || 'U').split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2);
@@ -285,12 +306,12 @@ export default function EventDetailPage() {
               <div key={p.id} className="flex flex-col items-center min-w-[56px]">
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center text-xs font-semibold mb-1 ${
-                    p.is_captain ? 'bg-amber-400 text-warm-900' : 'bg-green-100 text-green-800'
+                    p.is_captain ? 'bg-amber-400 text-warm-900' : dark ? 'bg-green-900/40 text-green-400' : 'bg-green-100 text-green-800'
                   }`}
                 >
                   {initials}
                 </div>
-                <span className="text-[10px] text-warm-500 text-center">{(p.name || 'User').split(' ')[0]}</span>
+                <span className={`text-[10px] text-center ${textMuted}`}>{(p.name || 'User').split(' ')[0]}</span>
               </div>
             );
           })}
@@ -298,25 +319,28 @@ export default function EventDetailPage() {
       </div>
 
       {/* Polls */}
-      {/* Create poll (captain only) */}
       {isCaptain && isParticipant && (
         <div className="mb-4">
           {!showPollForm ? (
             <button
               onClick={() => setShowPollForm(true)}
-              className="w-full py-2.5 rounded-xl border border-dashed border-warm-300 bg-warm-50 text-warm-700 text-xs font-medium flex items-center justify-center gap-2 cursor-pointer hover:bg-warm-100 transition-colors"
+              className={`w-full py-2.5 rounded-xl border border-dashed text-xs font-medium flex items-center justify-center gap-2 cursor-pointer transition-colors ${
+                dark
+                  ? 'border-dark-muted bg-dark-card text-dark-text hover:bg-dark-hover'
+                  : 'border-warm-300 bg-warm-50 text-warm-700 hover:bg-warm-100'
+              }`}
             >
               <Plus size={14} />
-              Create a poll
+              {t('createPoll')}
             </button>
           ) : (
-            <div className="bg-white rounded-2xl border border-warm-100 p-4">
+            <div className={`rounded-2xl border p-4 ${cardClass}`}>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <BarChart3 size={16} className="text-warm-700" />
-                  New poll
+                <h3 className={`text-sm font-semibold flex items-center gap-2 ${textMain}`}>
+                  <BarChart3 size={16} />
+                  {t('newPoll')}
                 </h3>
-                <button onClick={() => setShowPollForm(false)} className="text-warm-500 bg-transparent border-none cursor-pointer p-0">
+                <button onClick={() => setShowPollForm(false)} className={`bg-transparent border-none cursor-pointer p-0 ${textMuted}`}>
                   <X size={16} />
                 </button>
               </div>
@@ -325,7 +349,7 @@ export default function EventDetailPage() {
                 placeholder="Question — e.g. What time works best?"
                 value={pollQuestion}
                 onChange={(e) => setPollQuestion(e.target.value)}
-                className="w-full px-3 py-2.5 border border-warm-200 rounded-xl text-sm bg-white focus:outline-none focus:border-green-500 mb-2"
+                className={`w-full px-3 py-2.5 border rounded-xl text-sm focus:outline-none focus:border-green-500 mb-2 ${inputClass}`}
               />
               {pollOptions.map((opt, i) => (
                 <input
@@ -338,7 +362,7 @@ export default function EventDetailPage() {
                     next[i] = e.target.value;
                     setPollOptions(next);
                   }}
-                  className="w-full px-3 py-2 border border-warm-200 rounded-lg text-xs bg-white focus:outline-none focus:border-green-500 mb-1.5"
+                  className={`w-full px-3 py-2 border rounded-lg text-xs focus:outline-none focus:border-green-500 mb-1.5 ${inputClass}`}
                 />
               ))}
               <div className="flex gap-2 mt-2">
@@ -347,7 +371,7 @@ export default function EventDetailPage() {
                   className="text-xs text-green-700 bg-transparent border-none cursor-pointer flex items-center gap-1"
                 >
                   <Plus size={12} />
-                  Add option
+                  {t('addOption')}
                 </button>
                 <div className="flex-1" />
                 <button
@@ -355,7 +379,7 @@ export default function EventDetailPage() {
                   disabled={creatingPoll}
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg cursor-pointer border-none transition-colors disabled:opacity-60"
                 >
-                  {creatingPoll ? 'Creating...' : 'Create'}
+                  {creatingPoll ? t('creating') : t('create')}
                 </button>
               </div>
             </div>
@@ -364,10 +388,10 @@ export default function EventDetailPage() {
       )}
 
       {polls.map((poll) => (
-        <div key={poll.id} className="bg-white rounded-2xl border border-warm-100 p-4 mb-4">
+        <div key={poll.id} className={`rounded-2xl border p-4 mb-4 ${cardClass}`}>
           <div className="flex items-center gap-2 mb-3">
-            <BarChart3 size={16} className="text-warm-700" />
-            <h3 className="text-sm font-semibold">{poll.question}</h3>
+            <BarChart3 size={16} className={dark ? 'text-dark-text' : 'text-warm-700'} />
+            <h3 className={`text-sm font-semibold ${textMain}`}>{poll.question}</h3>
           </div>
           {poll.options.map((opt) => {
             const voted = poll.user_vote === opt.id;
@@ -376,63 +400,69 @@ export default function EventDetailPage() {
                 key={opt.id}
                 onClick={() => handleVote(poll.id, opt.id)}
                 className={`w-full relative p-3.5 border-[1.5px] rounded-xl mb-2 cursor-pointer overflow-hidden text-left transition-colors ${
-                  voted ? 'border-green-500' : 'border-warm-200 hover:border-warm-500'
+                  voted
+                    ? 'border-green-500'
+                    : dark ? 'border-dark-border hover:border-dark-muted' : 'border-warm-200 hover:border-warm-500'
                 }`}
               >
                 <div
                   className={`absolute left-0 top-0 bottom-0 transition-all duration-300 ${
-                    voted ? 'bg-green-50' : 'bg-warm-50'
+                    voted ? dark ? 'bg-green-900/30' : 'bg-green-50' : dark ? 'bg-dark-hover' : 'bg-warm-50'
                   }`}
                   style={{ width: `${opt.percentage}%` }}
                 />
                 <div className="relative flex justify-between items-center">
                   <div>
-                    <p className="text-sm font-semibold text-warm-900">{opt.text}</p>
+                    <p className={`text-sm font-semibold ${textMain}`}>{opt.text}</p>
                     {opt.extra && (
-                      <p className="text-xs text-warm-500 mt-0.5">{opt.extra}</p>
+                      <p className={`text-xs mt-0.5 ${textMuted}`}>{opt.extra}</p>
                     )}
                   </div>
-                  <span className={`text-sm font-semibold ${voted ? 'text-green-700' : 'text-warm-500'}`}>
+                  <span className={`text-sm font-semibold ${voted ? 'text-green-700' : textMuted}`}>
                     {opt.percentage}%
                   </span>
                 </div>
               </button>
             );
           })}
-          <p className="text-[10px] text-warm-500 text-right">{poll.total_votes} vote{poll.total_votes !== 1 ? 's' : ''}</p>
+          <p className={`text-[10px] text-right ${textMuted}`}>
+            {poll.total_votes} {poll.total_votes !== 1 ? t('votes') : t('vote')}
+          </p>
         </div>
       ))}
 
-      {/* Chat (only for participants) */}
+      {/* Chat */}
       {isParticipant && (
         <div className="mb-4">
           <div className="flex items-center gap-2 mb-3">
-            <Send size={14} className="text-warm-700" />
-            <h3 className="text-sm font-semibold">Group chat</h3>
+            <Send size={14} className={dark ? 'text-dark-text' : 'text-warm-700'} />
+            <h3 className={`text-sm font-semibold ${textMain}`}>{t('groupChat')}</h3>
           </div>
           <div className="flex flex-col gap-2.5 mb-3 max-h-80 overflow-y-auto">
             {messages.length === 0 ? (
-              <p className="text-xs text-warm-500 text-center py-4">No messages yet. Start the conversation!</p>
+              <p className={`text-xs text-center py-4 ${textMuted}`}>{t('noMessages')}</p>
             ) : (
               messages.map((msg) => (
                 <div key={msg.id}>
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-xs font-semibold">
-                      {msg.sender_id === user?.id ? 'You' : msg.sender_name}
+                    <span className={`text-xs font-semibold ${textMain}`}>
+                      {msg.sender_id === user?.id ? t('you') : msg.sender_name}
                     </span>
                     {msg.is_captain && (
                       <span className="flex items-center gap-0.5 text-[9px] bg-amber-400 text-warm-900 px-1.5 py-0.5 rounded-full font-semibold">
                         <Crown size={8} />
-                        Captain
+                        {t('captain')}
                       </span>
                     )}
-                    <span className="text-[10px] text-warm-500">
+                    <span className={`text-[10px] ${textMuted}`}>
                       {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                     </span>
                   </div>
                   <p
                     className={`text-sm leading-relaxed px-3.5 py-2.5 rounded-xl ${
-                      msg.sender_id === user?.id ? 'bg-green-50' : 'bg-warm-50'
+                      msg.sender_id === user?.id
+                        ? dark ? 'bg-green-900/30' : 'bg-green-50'
+                        : dark ? 'bg-dark-hover' : 'bg-warm-50'
                     }`}
                   >
                     {msg.text}
@@ -445,11 +475,11 @@ export default function EventDetailPage() {
           <div className="flex gap-2">
             <input
               type="text"
-              placeholder="Type a message..."
+              placeholder={t('typeMessage')}
               value={msgInput}
               onChange={(e) => setMsgInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-              className="flex-1 px-4 py-3 border border-warm-200 rounded-xl text-sm bg-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 transition"
+              className={`flex-1 px-4 py-3 border rounded-xl text-sm focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100 transition ${inputClass}`}
             />
             <button
               onClick={sendMessage}

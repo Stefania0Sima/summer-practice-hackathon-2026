@@ -21,6 +21,13 @@
   --color-warm-500: #8A8F82;
   --color-warm-700: #4A4F44;
   --color-warm-900: #1A1F14;
+  /* Dark palette */
+  --color-dark-bg: #111712;
+  --color-dark-card: #1A1F16;
+  --color-dark-border: #2A3024;
+  --color-dark-hover: #232A1E;
+  --color-dark-muted: #8A8F82;
+  --color-dark-text: #E8EBE4;
 }
 
 body {
@@ -28,6 +35,12 @@ body {
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   color: var(--color-warm-900);
   margin: 0;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+html.dark body {
+  background: var(--color-dark-bg);
+  color: var(--color-dark-text);
 }
 
 *, *::before, *::after {
